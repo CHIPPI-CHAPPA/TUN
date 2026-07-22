@@ -26,9 +26,12 @@ jobs:
       - name: Reassemble source files
         run: |
           cat core.part.00 core.part.01 > build_vietnam_pdf.py
+          sed -i '$d' build_vietnam_pdf.py
+          cat fetch_patch.py >> build_vietnam_pdf.py
           cat data.part.00 data.part.01 data.part.02 data.part.03 > vietnam_data.json
           python -m py_compile build_vietnam_pdf.py
           python -m json.tool vietnam_data.json >/dev/null
+          python -m json.tool source_pages.json >/dev/null
       - name: Build PDF
         id: build
         continue-on-error: true
@@ -40,8 +43,8 @@ jobs:
         run: |
           ls -lh output || true
           pdfinfo output/Vietnam_14_Days_REAL_Photos_RU.pdf || true
-          grep -c 'REGION-FALLBACK' output/photo_report.csv || true
           grep -c 'MISSING' output/photo_report.csv || true
+          sed -n '1,80p' output/photo_report.csv || true
       - name: Upload deliverable
         if: always()
         uses: actions/upload-artifact@v4
