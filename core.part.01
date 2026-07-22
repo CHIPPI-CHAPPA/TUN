@@ -1,13 +1,17 @@
-            if dl(u,path,x.get('page_url','')):
-                it.photo_path=path; it.photo_url=u; it.source_page=x.get('page_url','')or u; it.source_title=x.get('title',''); it.source_domain=dom(it.source_page or u); it.status='exact-search'; return
-        u=x.get('thumb_url','')
-        if u and u not in seen:
-            seen.add(u)
-            if dl(u,path,x.get('page_url','')):
-                it.photo_path=path; it.photo_url=u; it.source_page=x.get('page_url','')or u; it.source_title=x.get('title',''); it.source_domain=dom(it.source_page or u); it.status='exact-thumbnail'; return
-    for x in commons(FALL.get(it.city,it.city+' Vietnam'),15):
-        if dl(x.get('image_url',''),path,x.get('page_url','')):
-            it.photo_path=path; it.photo_url=x.get('image_url',''); it.source_page=x.get('page_url',''); it.source_title=x.get('title',''); it.source_domain=dom(it.source_page); it.status='REGION-FALLBACK'; return
+        if dl(u,path,p):
+            it.photo_path=path; it.photo_url=u; it.source_page=p; it.source_title=FILES[it.name]; it.source_domain='commons.wikimedia.org'; it.status='exact-direct'; return
+    q=f'"{it.name}" {CITY_EN.get(it.city,it.city)} Vietnam'
+    candidates=duck(q,70)+duck(f'{it.name} {CITY_EN.get(it.city,it.city)} official',60)
+    req=exact_tokens(it); need=max(1,min(2,len(req)))
+    for x in candidates:
+        comb=norm(' '.join([x.get('title',''),x.get('page_url',''),x.get('image_url','')]))
+        score=sum(1 for t in req if t in comb)
+        place=norm(CITY_EN.get(it.city,it.city))
+        place_ok=any(t in comb for t in place.split()) or 'vietnam' in comb
+        if score<need or not place_ok:continue
+        for u in (x.get('image_url',''),x.get('thumb_url','')):
+            if u and dl(u,path,x.get('page_url','')):
+                it.photo_path=path; it.photo_url=u; it.source_page=x.get('page_url','')or u; it.source_title=x.get('title',''); it.source_domain=dom(it.source_page or u); it.status='exact-ddg'; return
     it.status='MISSING'
 
 def crop(c,p,x,y,w,h):
