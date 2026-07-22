@@ -64,37 +64,52 @@ def commons(q,n=18):
         sc=sum(1 for t in tt if t in norm(title))
         out.append({'image_url':ii.get('thumburl')or ii.get('url'),'page_url':ii.get('descriptionurl')or f"https://commons.wikimedia.org/wiki/{quote(title.replace(' ','_'))}",'title':title.removeprefix('File:'),'score':sc})
     return sorted(out,key=lambda x:x['score'],reverse=True)
-def bing(q,n=55):
-    try:r=S.get('https://www.bing.com/images/search',params={'q':q,'form':'HDRSC2','first':1},timeout=TIMEOUT); soup=BeautifulSoup(r.text,'html.parser')
-    except:return []
-    tt=toks(q); out=[]
-    for a in soup.select('a.iusc')[:n]:
-        try:m=json.loads(html.unescape(a.get('m','')))
-        except:continue
-        mu=m.get('murl',''); tu=m.get('turl',''); pu=m.get('purl',''); title=m.get('t','')or a.get('aria-label',''); comb=norm(' '.join([title,pu,mu]))
-        if not mu or any(b in comb for b in BAD) or mu.lower().endswith(('.svg','.gif')):continue
-        sc=sum(1 for t in tt if t in comb); d=dom(pu)
-        if d.endswith(('booking.com','expedia.com','expedia.co.uk','agoda.com','tripadvisor.com','tripadvisor.co.uk')):sc+=1.2
-        if any(x in d for x in ('hotel','resort','restaurant','cafe')):sc+=.4
-        out.append({'image_url':mu,'thumb_url':tu,'page_url':pu,'title':title,'score':sc})
-    return sorted(out,key=lambda x:x['score'],reverse=True)
-FALL={'Ханой':'Hoan Kiem Lake Hanoi Vietnam','Ниньбинь':'Tam Coc Ninh Binh Vietnam','Хюэ':'Hue Imperial City Vietnam','Хойан':'Hoi An Ancient Town Vietnam','Окрестности Хойана':'My Son Sanctuary Vietnam','Дананг':'Da Nang My Khe Beach Vietnam'}
-DIRECT={
-    'Императорская цитадель Тханглонг':('https://commons.wikimedia.org/wiki/Special:FilePath/Imperial%20Citadel%20of%20Thang%20Long%20%2826910835332%29.jpg?width=1800','https://commons.wikimedia.org/wiki/File:Imperial_Citadel_of_Thang_Long_(26910835332).jpg','Imperial Citadel of Thang Long'),
-    'Пагода Bich Dong':('https://commons.wikimedia.org/wiki/Special:FilePath/Bich%20Dong%20Pagoda%2C%20Ninh%20Binh%2C%20Vietnam%2C%2020240203%201135%205636.jpg?width=1800','https://commons.wikimedia.org/wiki/File:Bich_Dong_Pagoda,_Ninh_Binh,_Vietnam,_20240203_1135_5636.jpg','Bich Dong Pagoda'),
-    'Японский крытый мост':('https://raw.githubusercontent.com/techEdge3030/vietnam-travel/e7872de16ebf59d41a4782cf635a5eee4917de08/src/assets/places/hoian/japaneseBridge.jpg','https://github.com/techEdge3030/vietnam-travel/blob/e7872de16ebf59d41a4782cf635a5eee4917de08/src/assets/places/hoian/japaneseBridge.jpg','Japanese Covered Bridge Hoi An')
+def duck(q,n=60):
+    try:
+        home=S.get('https://duckduckgo.com/',params={'q':q},timeout=TIMEOUT)
+        m=re.search(r'vqd=["\']?([0-9-]+)',home.text)
+        if not m:m=re.search(r'vqd=([0-9-]+)&',home.text)
+        if not m:return []
+        vqd=m.group(1)
+        r=S.get('https://duckduckgo.com/i.js',params={'l':'us-en','o':'json','q':q,'vqd':vqd,'f':',,,','p':'1'},headers={'User-Agent':UA,'Referer':home.url},timeout=TIMEOUT)
+        data=r.json().get('results',[])
+    except Exception:return []
+    out=[]
+    for x in data[:n]:
+        iu=x.get('image',''); tu=x.get('thumbnail',''); pu=x.get('url',''); title=x.get('title','')
+        comb=norm(' '.join([title,pu,iu]))
+        if not iu or any(b in comb for b in BAD) or iu.lower().endswith(('.svg','.gif')):continue
+        out.append({'image_url':iu,'thumb_url':tu,'page_url':pu,'title':title})
+    return out
+CITY_EN={'Ханой':'Hanoi','Ниньбинь':'Ninh Binh','Хюэ':'Hue','Хойан':'Hoi An','Окрестности Хойана':'Hoi An','Дананг':'Da Nang'}
+FILES={
+'Старый квартал Ханоя':'Vietnam hanoi old quarter.jpg',
+'Озеро Хоанкьем и храм Нгокшон':'Hoan Kiem Lake & Ngoc Son Temple (3694363433).jpg',
+'Храм Литературы':'Temple of Literature Hanoi.jpg',
+'Императорская цитадель Тханглонг':'Imperial Citadel of Thang Long (26910835332).jpg',
+'Лодочный комплекс Trang An':'Trang An, Ninh Binh.jpg',
+'Смотровая площадка Hang Mua':'Hang Mua 4.jpg',
+'Лодочная прогулка Tam Coc':'Tam Coc Ninh Binh (52269).jpg',
+'Пагода Bich Dong':'Bich Dong Pagoda, Ninh Binh, Vietnam, 20240203 1135 5636.jpg',
+'Древняя столица Hoa Lu':'Temple at ancient Vietnamese capital of Hoa Lu (15) (38445420776).jpg',
+'Императорский город Хюэ':'Vietnam, Hue, Imperial City of Hue.jpg',
+'Гробница императора Khai Dinh':'Khai Dinh tomb (38834468154).jpg',
+'Пагода Thien Mu':'Thien Mu Pagoda1.JPG',
+'Старый город Хойан':'Hoi An Ancient Town, Vietnam (6944154908).jpg',
+'Японский крытый мост':'Japanese Covered Bridge, Hoi An, Vietnam (7090633807).jpg',
+'Пляж An Bang':'Hoi-An-Beach.jpg',
+'Овощная деревня Tra Que':'Tra Que Village, Hoi An (32532345418).jpg',
+'Храмовый комплекс My Son':'My Son Sanctuary Vietnam 02.jpg',
+'Мраморные горы':'Marble Mountains, Vietnam.jpg',
+'Полуостров Son Tra и пагода Linh Ung':'Son-Tra-Peninsula Da-Nang Vietnam Statue-of-the-Bodhisattva-of-Mercy-01.jpg',
+'Пляж My Khe':'My Khe Beach, Da Nang, Vietnam.jpg'
 }
+def file_urls(fn):
+    return ('https://commons.wikimedia.org/wiki/Special:FilePath/'+quote(fn,safe='')+'?width=1800','https://commons.wikimedia.org/wiki/File:'+quote(fn.replace(' ','_'),safe='_:,()'))
+def exact_tokens(it):
+    a=[x for x in toks(it.name) if x not in ('scene','prime','center','grand','sunshine','legacy','little','gem','golden','rose','madame','madam','nook','field','loading')]
+    return a or toks(it.name)
 def fetch(it):
     path=IMG/f"{norm(it.section)[:3]}_{it.number:02d}_{fname(it.name)}.jpg"
-    if it.name in DIRECT:
-        u,p,t=DIRECT[it.name]
-        if dl(u,path,p):
-            it.photo_path=path; it.photo_url=u; it.source_page=p; it.source_title=t; it.source_domain=dom(p); it.status='exact-direct'; return
-    cs=[]
-    if it.source_preference=='commons':cs+=commons(it.query,22); cs+=bing(it.query,35)
-    else:cs+=bing(it.query,60); cs+=bing(f'{it.name} {it.city} Vietnam',45)
-    seen=set()
-    for x in cs:
-        u=x.get('image_url','')
-        if u and u not in seen:
-            seen.add(u)
+    if it.name in FILES:
+        u,p=file_urls(FILES[it.name])
