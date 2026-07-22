@@ -27,7 +27,8 @@ jobs:
         run: |
           cat core.part.00 core.part.01 > build_vietnam_pdf.py
           sed -i '$d' build_vietnam_pdf.py
-          cat fetch_patch.py >> build_vietnam_pdf.py
+          sed '$d' fetch_patch.py >> build_vietnam_pdf.py
+          cat fallback_patch.py >> build_vietnam_pdf.py
           cat data.part.00 data.part.01 data.part.02 data.part.03 > vietnam_data.json
           python -m py_compile build_vietnam_pdf.py
           python -m json.tool vietnam_data.json >/dev/null
