@@ -1,0 +1,90 @@
+from __future__ import annotations
+import csv, html, io, json, os, re, sys, time, unicodedata
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import quote, urlparse
+import requests
+from bs4 import BeautifulSoup
+from PIL import Image, ImageOps, UnidentifiedImageError
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+
+OUT=Path(os.environ.get('OUT_DIR','output')); IMG=OUT/'images'; OUT.mkdir(parents=True,exist_ok=True); IMG.mkdir(exist_ok=True)
+PDF=OUT/'Vietnam_14_Days_REAL_Photos_RU.pdf'; REPORT=OUT/'photo_report.csv'
+W,H=A4; M=15*mm
+NAVY=colors.HexColor('#0E2E4F'); TEAL=colors.HexColor('#117C75'); GREEN=colors.HexColor('#2E7D4F'); GOLD=colors.HexColor('#D79A2B'); LIGHT=colors.HexColor('#F4F8F7'); MID=colors.HexColor('#637381'); DARK=colors.HexColor('#12212E')
+UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36'
+S=requests.Session(); S.headers.update({'User-Agent':UA,'Accept-Language':'en-GB,en;q=0.9'}); TIMEOUT=25
+fr='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'; fb='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+pdfmetrics.registerFont(TTFont('DV',fr)); pdfmetrics.registerFont(TTFont('DVB',fb))
+
+@dataclass
+class Item:
+    section:str; number:int; name:str; city:str; price:str; summary:str; transport:str; query:str; source_preference:str='bing'
+    photo_path:Path|None=None; photo_url:str=''; source_page:str=''; source_title:str=''; source_domain:str=''; status:str=''
+
+def norm(s):
+    s=unicodedata.normalize('NFKD',s); s=''.join(c for c in s if not unicodedata.combining(c)); s=re.sub(r'[^a-z0-9]+',' ',s.lower()); return re.sub(r'\s+',' ',s).strip()
+def dom(u):
+    try:return urlparse(u).netloc.lower().removeprefix('www.')
+    except:return ''
+def fname(s):return re.sub(r'[^a-z0-9]+','_',norm(s)).strip('_')[:70]
+STOP={'hotel','spa','boutique','resort','restaurant','cafe','coffee','garden','original','hanoi','hue','hoian','hoi','ninh','binh','nang','vietnam','the','and','bar','house','villa','beach'}
+BAD=('ai generated','midjourney','dall e','stable diffusion','illustration','vector','logo','clipart','freepik','pinterest')
+def toks(s):
+    a=[x for x in norm(s.replace('"','')).split() if len(x)>=3 and x not in STOP]; return a or [x for x in norm(s).split() if len(x)>=2]
+
+def save_img(raw,path):
+    try:
+        im=Image.open(io.BytesIO(raw)); im.load()
+        if im.width<500 or im.height<320 or im.width*im.height<280000:return False
+        im=ImageOps.exif_transpose(im).convert('RGB'); im.thumbnail((1800,1250),Image.Resampling.LANCZOS); im.save(path,'JPEG',quality=84,optimize=True,progressive=True); return True
+    except (UnidentifiedImageError,OSError,ValueError):return False
+def dl(url,path,referer=''):
+    if not url or url.startswith('data:'):return False
+    h={'User-Agent':UA,'Accept':'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'}
+    if referer:h['Referer']=referer
+    try:
+        r=S.get(url,headers=h,timeout=TIMEOUT,allow_redirects=True)
+        return r.status_code==200 and len(r.content)>20000 and save_img(r.content,path)
+    except requests.RequestException:return False
+
+def commons(q,n=18):
+    p={'action':'query','generator':'search','gsrsearch':q,'gsrnamespace':6,'gsrlimit':n,'prop':'imageinfo','iiprop':'url|extmetadata|mime|size','iiurlwidth':1800,'format':'json','formatversion':2,'origin':'*'}
+    try:r=S.get('https://commons.wikimedia.org/w/api.php',params=p,timeout=TIMEOUT); pages=r.json().get('query',{}).get('pages',[])
+    except:return []
+    tt=toks(q); out=[]
+    for pg in pages:
+        ii=(pg.get('imageinfo')or[{}])[0]; title=pg.get('title',''); mime=ii.get('mime','')
+        if mime not in ('image/jpeg','image/png') or any(x in norm(title) for x in ('map','diagram','logo','seal','flag','plan')):continue
+        sc=sum(1 for t in tt if t in norm(title))
+        out.append({'image_url':ii.get('thumburl')or ii.get('url'),'page_url':ii.get('descriptionurl')or f"https://commons.wikimedia.org/wiki/{quote(title.replace(' ','_'))}",'title':title.removeprefix('File:'),'score':sc})
+    return sorted(out,key=lambda x:x['score'],reverse=True)
+def bing(q,n=55):
+    try:r=S.get('https://www.bing.com/images/search',params={'q':q,'form':'HDRSC2','first':1},timeout=TIMEOUT); soup=BeautifulSoup(r.text,'html.parser')
+    except:return []
+    tt=toks(q); out=[]
+    for a in soup.select('a.iusc')[:n]:
+        try:m=json.loads(html.unescape(a.get('m','')))
+        except:continue
+        mu=m.get('murl',''); tu=m.get('turl',''); pu=m.get('purl',''); title=m.get('t','')or a.get('aria-label',''); comb=norm(' '.join([title,pu,mu]))
+        if not mu or any(b in comb for b in BAD) or mu.lower().endswith(('.svg','.gif')):continue
+        sc=sum(1 for t in tt if t in comb); d=dom(pu)
+        if d.endswith(('booking.com','expedia.com','expedia.co.uk','agoda.com','tripadvisor.com','tripadvisor.co.uk')):sc+=1.2
+        if any(x in d for x in ('hotel','resort','restaurant','cafe')):sc+=.4
+        out.append({'image_url':mu,'thumb_url':tu,'page_url':pu,'title':title,'score':sc})
+    return sorted(out,key=lambda x:x['score'],reverse=True)
+FALL={'Ханой':'Hoan Kiem Lake Hanoi Vietnam','Ниньбинь':'Tam Coc Ninh Binh Vietnam','Хюэ':'Hue Imperial City Vietnam','Хойан':'Hoi An Ancient Town Vietnam','Окрестности Хойана':'My Son Sanctuary Vietnam','Дананг':'Da Nang My Khe Beach Vietnam'}
+def fetch(it):
+    path=IMG/f"{norm(it.section)[:3]}_{it.number:02d}_{fname(it.name)}.jpg"; cs=[]
+    if it.source_preference=='commons':cs+=commons(it.query,22); cs+=bing(it.query,35)
+    else:cs+=bing(it.query,60); cs+=bing(f'{it.name} {it.city} Vietnam',45)
+    seen=set()
+    for x in cs:
+        u=x.get('image_url','')
+        if u and u not in seen:
+            seen.add(u)
