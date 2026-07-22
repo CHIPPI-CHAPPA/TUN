@@ -79,8 +79,18 @@ def bing(q,n=55):
         out.append({'image_url':mu,'thumb_url':tu,'page_url':pu,'title':title,'score':sc})
     return sorted(out,key=lambda x:x['score'],reverse=True)
 FALL={'Ханой':'Hoan Kiem Lake Hanoi Vietnam','Ниньбинь':'Tam Coc Ninh Binh Vietnam','Хюэ':'Hue Imperial City Vietnam','Хойан':'Hoi An Ancient Town Vietnam','Окрестности Хойана':'My Son Sanctuary Vietnam','Дананг':'Da Nang My Khe Beach Vietnam'}
+DIRECT={
+    'Императорская цитадель Тханглонг':('https://commons.wikimedia.org/wiki/Special:FilePath/Imperial%20Citadel%20of%20Thang%20Long%20%2826910835332%29.jpg?width=1800','https://commons.wikimedia.org/wiki/File:Imperial_Citadel_of_Thang_Long_(26910835332).jpg','Imperial Citadel of Thang Long'),
+    'Пагода Bich Dong':('https://commons.wikimedia.org/wiki/Special:FilePath/Bich%20Dong%20Pagoda%2C%20Ninh%20Binh%2C%20Vietnam%2C%2020240203%201135%205636.jpg?width=1800','https://commons.wikimedia.org/wiki/File:Bich_Dong_Pagoda,_Ninh_Binh,_Vietnam,_20240203_1135_5636.jpg','Bich Dong Pagoda'),
+    'Японский крытый мост':('https://raw.githubusercontent.com/techEdge3030/vietnam-travel/e7872de16ebf59d41a4782cf635a5eee4917de08/src/assets/places/hoian/japaneseBridge.jpg','https://github.com/techEdge3030/vietnam-travel/blob/e7872de16ebf59d41a4782cf635a5eee4917de08/src/assets/places/hoian/japaneseBridge.jpg','Japanese Covered Bridge Hoi An')
+}
 def fetch(it):
-    path=IMG/f"{norm(it.section)[:3]}_{it.number:02d}_{fname(it.name)}.jpg"; cs=[]
+    path=IMG/f"{norm(it.section)[:3]}_{it.number:02d}_{fname(it.name)}.jpg"
+    if it.name in DIRECT:
+        u,p,t=DIRECT[it.name]
+        if dl(u,path,p):
+            it.photo_path=path; it.photo_url=u; it.source_page=p; it.source_title=t; it.source_domain=dom(p); it.status='exact-direct'; return
+    cs=[]
     if it.source_preference=='commons':cs+=commons(it.query,22); cs+=bing(it.query,35)
     else:cs+=bing(it.query,60); cs+=bing(f'{it.name} {it.city} Vietnam',45)
     seen=set()
