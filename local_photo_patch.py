@@ -1,5 +1,7 @@
 
 # Use browser-captured photos from each exact venue/landmark source page.
+SOURCE_PAGES=json.loads(Path('source_pages.json').read_text(encoding='utf-8'))
+SOURCE_PAGES['Trang An Riverside Garden']='https://www.happycow.net/reviews/tam-coc-ngo-dong-homestay-and-vegan-restaurant-ninh-binh-327356'
 def fetch(it):
     code={'ДОСТОПРИМЕЧАТЕЛЬНОСТИ':'a','ОТЕЛИ':'h','КАФЕ И РЕСТОРАНЫ':'r'}[it.section]
     p=Path('preset')/f'{code}{int(it.number):02d}.jpg'
