@@ -1,0 +1,90 @@
+            if dl(u,path,x.get('page_url','')):
+                it.photo_path=path; it.photo_url=u; it.source_page=x.get('page_url','')or u; it.source_title=x.get('title',''); it.source_domain=dom(it.source_page or u); it.status='exact-search'; return
+        u=x.get('thumb_url','')
+        if u and u not in seen:
+            seen.add(u)
+            if dl(u,path,x.get('page_url','')):
+                it.photo_path=path; it.photo_url=u; it.source_page=x.get('page_url','')or u; it.source_title=x.get('title',''); it.source_domain=dom(it.source_page or u); it.status='exact-thumbnail'; return
+    for x in commons(FALL.get(it.city,it.city+' Vietnam'),15):
+        if dl(x.get('image_url',''),path,x.get('page_url','')):
+            it.photo_path=path; it.photo_url=x.get('image_url',''); it.source_page=x.get('page_url',''); it.source_title=x.get('title',''); it.source_domain=dom(it.source_page); it.status='REGION-FALLBACK'; return
+    it.status='MISSING'
+
+def crop(c,p,x,y,w,h):
+    im=Image.open(p); iw,ih=im.size; br=w/h; ir=iw/ih
+    if ir>br:nw=int(ih*br); l=(iw-nw)//2; im=im.crop((l,0,l+nw,ih))
+    else:nh=int(iw/br); t=(ih-nh)//2; im=im.crop((0,t,iw,t+nh))
+    temp=IMG/(p.stem+'_crop.jpg'); im=im.resize((int(w*2.1),int(h*2.1)),Image.Resampling.LANCZOS); im.save(temp,'JPEG',quality=86,optimize=True); c.drawImage(str(temp),x,y,w,h,mask='auto'); temp.unlink(missing_ok=True)
+def lines(c,text,width,font,size):
+    out=[]; cur=''
+    for word in text.split():
+        z=(cur+' '+word).strip()
+        if c.stringWidth(z,font,size)<=width:cur=z
+        else:
+            if cur:out.append(cur)
+            cur=word
+    if cur:out.append(cur)
+    return out
+def block(c,text,x,yt,width,font,size,lead,color=DARK,maxn=6):
+    c.setFont(font,size); c.setFillColor(color); y=yt
+    for z in lines(c,text,width,font,size)[:maxn]:c.drawString(x,y,z); y-=lead
+    return y
+def footer(c,n,src=''):
+    c.setStrokeColor(colors.HexColor('#D9E2E7')); c.line(M,11*mm,W-M,11*mm); c.setFont('DV',7.2); c.setFillColor(MID); c.drawString(M,7*mm,'Vietnam - маршрут на 14 дней | реальные фотографии | цены ориентировочные'); c.drawRightString(W-M,7*mm,str(n))
+    if src:c.drawString(M,13*mm,'Источник фото: '+(src[:82]+'...' if len(src)>85 else src))
+def cover(c,p,n):
+    crop(c,p,0,0,W,H); c.setFillColor(colors.Color(.02,.10,.18,alpha=.68)); c.rect(0,0,W,H,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DVB',35); c.drawString(M,H-46*mm,'ВЬЕТНАМ'); c.setFont('DVB',19); c.drawString(M,H-59*mm,'Персональный маршрут на 14 дней'); c.setFont('DV',13); c.drawString(M,H-70*mm,'Ханой - Ниньбинь - Хюэ - Хойан - Дананг'); c.setFont('DVB',12); c.drawString(M,H-88*mm,'Только общественный транспорт и такси')
+    c.setFillColor(colors.Color(1,1,1,alpha=.92)); c.roundRect(M,28*mm,W-2*M,83*mm,6*mm,fill=1,stroke=0); c.setFillColor(NAVY); c.setFont('DVB',17); c.drawString(M+8*mm,H-118*mm,'Что внутри'); c.setFont('DV',11.5); y=H-130*mm
+    for z in ('20 достопримечательностей с крупными реальными фотографиями и ценами','20 красивых отелей с ориентиром за отдельный номер','20 кафе и ресторанов с примерным чеком','Маршрут на поездах, автобусах и Grab-такси','Кликабельный источник каждой фотографии'):
+        c.setFillColor(TEAL); c.circle(M+10*mm,y+1.5*mm,1.5*mm,fill=1,stroke=0); c.setFillColor(DARK); c.drawString(M+16*mm,y,z); y-=11*mm
+    footer(c,n); c.showPage()
+def route(c,n):
+    c.setFillColor(NAVY); c.rect(0,H-38*mm,W,38*mm,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DVB',24); c.drawString(M,H-24*mm,'Маршрут на 14 дней'); c.setFont('DV',10); c.drawString(M,H-32*mm,'Спокойный темп без аренды машины и внутренних перелётов')
+    bs=[('Дни 1-3','Ханой','Старый квартал, Hoan Kiem, храмы, цитадель и кофе.'),('Дни 4-5','Ниньбинь','Trang An, Hang Mua, Tam Coc, Bich Dong и Hoa Lu.'),('Дни 6-7','Хюэ','Ночной поезд, Императорский город, Khai Dinh и Thien Mu.'),('Дни 8-11','Хойан','Старый город, An Bang, Tra Que и поездка в My Son.'),('Дни 12-14','Дананг','Мраморные горы, Son Tra, My Khe и вылет из Дананга.')]
+    y=H-56*mm
+    for d,city,desc in bs:
+        c.setFillColor(LIGHT); c.roundRect(M,y-30*mm,W-2*M,27*mm,4*mm,fill=1,stroke=0); c.setFillColor(TEAL); c.setFont('DVB',11); c.drawString(M+7*mm,y-10*mm,d); c.setFillColor(NAVY); c.setFont('DVB',16); c.drawString(M+36*mm,y-10*mm,city); block(c,desc,M+36*mm,y-18*mm,W-2*M-42*mm,'DV',9.5,4.5*mm,MID,2); y-=37*mm
+    c.setFillColor(colors.HexColor('#FFF7E6')); c.roundRect(M,22*mm,W-2*M,38*mm,4*mm,fill=1,stroke=0); c.setFillColor(NAVY); c.setFont('DVB',12); c.drawString(M+7*mm,51*mm,'Переезды'); block(c,'Ханой -> Ниньбинь: поезд или limousine-bus. Ниньбинь -> Хюэ: ночной поезд. Хюэ -> Дананг: дневной поезд через Hai Van Pass. Дананг <-> Хойан: автобус или Grab-такси.',M+7*mm,43*mm,W-2*M-14*mm,'DV',8.8,4.5*mm,DARK,4); footer(c,n); c.showPage()
+def section(c,title,sub,n,p):
+    crop(c,p,0,H*.42,W,H*.58); c.setFillColor(colors.Color(.02,.12,.20,alpha=.48)); c.rect(0,H*.42,W,H*.58,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DVB',27); c.drawString(M,H-44*mm,title); c.setFont('DV',13); c.drawString(M,H-57*mm,sub); c.setFillColor(LIGHT); c.rect(0,0,W,H*.42,fill=1,stroke=0); c.setFillColor(NAVY); c.setFont('DVB',17); c.drawString(M,89*mm,'Формат каталога'); c.setFont('DV',10.7); y=76*mm
+    for z in ('Один объект на странице - фотография занимает большую часть листа.','Под фотографией указаны цена, совет и способ добраться.','Внизу страницы есть кликабельная ссылка на источник.','AI-изображения и иллюстрации исключались из поиска.'):
+        c.setFillColor(TEAL); c.circle(M+2*mm,y+1.2*mm,1.4*mm,fill=1,stroke=0); c.setFillColor(DARK); c.drawString(M+8*mm,y,z); y-=12*mm
+    footer(c,n); c.showPage()
+def itempage(c,it,n):
+    c.setFillColor(NAVY); c.rect(0,H-31*mm,W,31*mm,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DV',9); c.drawString(M,H-11*mm,it.section); c.setFont('DVB',19); y=H-21*mm
+    for z in lines(c,f'{it.number}. {it.name}',W-2*M,'DVB',19)[:2]:c.drawString(M,y,z); y-=8*mm
+    iy=91*mm; ih=H-31*mm-iy-4*mm
+    if it.photo_path and it.photo_path.exists():crop(c,it.photo_path,M,iy,W-2*M,ih)
+    else:c.setFillColor(colors.HexColor('#E9EEF1')); c.rect(M,iy,W-2*M,ih,fill=1,stroke=0)
+    c.setFillColor(colors.white); c.roundRect(M,22*mm,W-2*M,62*mm,4*mm,fill=1,stroke=0); c.setStrokeColor(colors.HexColor('#D8E2E7')); c.roundRect(M,22*mm,W-2*M,62*mm,4*mm,fill=0,stroke=1); c.setFillColor(TEAL); c.setFont('DVB',11); c.drawString(M+7*mm,75*mm,it.city); c.setFillColor(GREEN); c.setFont('DVB',11.5); py=65*mm
+    for z in lines(c,it.price,W-2*M-14*mm,'DVB',11.5)[:2]:c.drawString(M+7*mm,py,z); py-=6*mm
+    sy=block(c,it.summary,M+7*mm,py-1*mm,W-2*M-14*mm,'DV',9.4,4.7*mm,DARK,3); c.setFillColor(MID); c.setFont('DVB',8.5); c.drawString(M+7*mm,sy-1*mm,'Как добраться / практический совет'); block(c,it.transport,M+7*mm,sy-7*mm,W-2*M-14*mm,'DV',8.5,4.2*mm,MID,3)
+    src=it.source_domain or it.source_page or 'источник не определён'; footer(c,n,src)
+    if it.source_page:c.linkURL(it.source_page,(M,12*mm,W-M,18*mm),relative=0)
+    c.showPage()
+def final(c,n):
+    c.setFillColor(NAVY); c.rect(0,0,W,H,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DVB',27); c.drawString(M,H-35*mm,'Итоговый ориентир бюджета'); c.setFont('DV',11); c.drawString(M,H-47*mm,'На одного человека, без международного авиабилета'); y=H-75*mm
+    for a,b in [('Отели, 13 ночей','примерно £350-£650'),('Питание и кофе','примерно £160-£300'),('Входные билеты','примерно £50'),('Поезда, автобусы и Grab','примерно £120-£220'),('Общий ориентир','примерно £680-£1 220')]:
+        c.setFillColor(colors.Color(1,1,1,alpha=.10)); c.roundRect(M,y-17*mm,W-2*M,15*mm,3*mm,fill=1,stroke=0); c.setFillColor(colors.white); c.setFont('DVB',11); c.drawString(M+7*mm,y-10*mm,a); c.setFillColor(colors.HexColor('#9FE3CD')); c.drawRightString(W-M-7*mm,y-10*mm,b); y-=23*mm
+    c.setFillColor(colors.HexColor('#F3D99A')); c.setFont('DVB',13); c.drawString(M,65*mm,'Перед бронированием'); c.setFillColor(colors.white); c.setFont('DV',9.3); y=53*mm
+    for z in ('Цены отелей и ресторанов меняются по датам.','Проверяйте налоги, завтрак и условия отмены.','Ночной поезд в Хюэ лучше покупать заранее.','Подпись источника на каждой странице кликабельна.'):
+        c.drawString(M+5*mm,y,'• '+z); y-=8*mm
+    c.setFont('DVB',15); c.setFillColor(colors.HexColor('#9FE3CD')); c.drawString(M,20*mm,'Приятного путешествия!'); footer(c,n); c.showPage()
+
+def main():
+    raw=json.loads(Path('vietnam_data.json').read_text(encoding='utf-8')); items=[Item(**x) for x in raw]
+    for i,it in enumerate(items,1):print(f'[{i:02d}/60] {it.name}',flush=True); fetch(it); print('  ',it.status,it.source_domain,it.source_title[:70],flush=True); time.sleep(.25)
+    with REPORT.open('w',newline='',encoding='utf-8') as f:
+        w=csv.writer(f); w.writerow(['section','number','name','city','status','source_domain','source_title','source_page','photo_url','local_file'])
+        for it in items:w.writerow([it.section,it.number,it.name,it.city,it.status,it.source_domain,it.source_title,it.source_page,it.photo_url,str(it.photo_path or '')])
+    miss=[x for x in items if x.status=='MISSING']; avail=[x for x in items if x.photo_path]
+    if not avail:raise RuntimeError('No photos')
+    c=canvas.Canvas(str(PDF),pagesize=A4,pageCompression=1); c.setTitle('Вьетнам на 14 дней - реальные фотографии'); n=1; cover(c,avail[0].photo_path,n); n+=1; route(c,n); n+=1
+    groups=[items[:20],items[20:40],items[40:]]; metas=[('20 достопримечательностей','История, природа и культура - цены и логистика'),('20 отелей','Красивые варианты от бюджетных до комфортных'),('20 кафе и ресторанов','Красивые интерьеры, виды и местная кухня')]
+    for g,(t,s) in zip(groups,metas):
+        p=next((x.photo_path for x in g if x.photo_path),avail[0].photo_path); section(c,t,s,n,p); n+=1
+        for it in g:itempage(c,it,n); n+=1
+    final(c,n); c.save(); print('CREATED',PDF,PDF.stat().st_size,flush=True)
+    if miss:print('MISSING: '+', '.join(x.name for x in miss),file=sys.stderr); return 2
+    return 0
+if __name__=='__main__':raise SystemExit(main())
